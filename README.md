@@ -59,6 +59,8 @@ La integracion DeepSeek anterior queda en sus archivos como referencia historica
 
 ## Git y trabajo en pareja
 
+GitHub Actions ejecuta `npm ci` y `npm test` en Node.js 22 y 24 para cada pull request y cada push a `feature/notas` o `feature/ia`. Las pruebas de A no necesitan claves ni solicitudes de IA. El resultado se consulta en la pestaña Actions del repositorio y en los checks del PR.
+
 A trabaja en `feature/notas`; B en `feature/ia`. No subir directamente a main. Crear un PR hacia main y pedir revision a la pareja; la aprobacion y los comentarios deben realizarlos las personas participantes. Cada integrante necesita al menos cinco commits significativos.
 
 Para que B tome esta base despues del push:

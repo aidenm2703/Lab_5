@@ -1,0 +1,31 @@
+name: Pruebas de la API
+
+on:
+  pull_request:
+  push:
+    branches:
+      - feature/notas
+      - feature/ia
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: API en Node.js ${{ matrix.node }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [22, 24]
+    steps:
+      - name: Obtener codigo
+        uses: actions/checkout@v4
+      - name: Preparar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - name: Instalar dependencias del lockfile
+        run: npm ci
+      - name: Verificar CRUD, validacion, errores y Swagger
+        run: npm test

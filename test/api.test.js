@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const { randomUUID } = require('node:crypto');
 const app = require('../app');
 const notas = require('../services/notas.service');
+const deepseek = require('../services/deepseek.service');
 let server, base;
 before(async () => {
   server = app.listen(0);
@@ -59,7 +60,43 @@ test('errores internos ocultan detalles', () => {
   assert.equal(status, 500);
   assert.deepEqual(body, { error: 'Error interno del servidor' });
 });
-test('Swagger documenta todas las operaciones de A y no implementa B', async () => {
+test('B valida preguntas, consulta DeepSeek y resume notas existentes', async () => {
+  const consultarOriginal = deepseek.consultar;
+  const resumirOriginal = deepseek.resumirNota;
+  try {
+    assert.equal((await request('/api/ia/preguntar', 'POST', { pregunta: ' ' })).status, 400);
+    deepseek.consultar = async pregunta => ({ respuesta: `Respuesta: ${pregunta}`, modelo: 'deepseek-test' });
+    const pregunta = await request('/api/ia/preguntar', 'POST', { pregunta: ' Hola ' });
+    assert.deepEqual(await pregunta.json(), { respuesta: 'Respuesta: Hola', modelo: 'deepseek-test' });
+
+    let llamadasResumen = 0;
+    deepseek.resumirNota = async () => { llamadasResumen += 1; return { resumen: '- uno\n- dos\n- tres', modelo: 'deepseek-test' }; };
+    assert.equal((await request('/api/notas/' + randomUUID() + '/resumen', 'POST')).status, 404);
+    assert.equal(llamadasResumen, 0);
+
+    const creada = await (await request('/api/notas', 'POST', { titulo: 'IA', contenido: 'Contenido para resumir' })).json();
+    const resumen = await request('/api/notas/' + creada.id + '/resumen', 'POST');
+    assert.equal(resumen.status, 200);
+    assert.deepEqual(await resumen.json(), { id: creada.id, resumen: '- uno\n- dos\n- tres', modelo: 'deepseek-test' });
+    assert.equal(llamadasResumen, 1);
+  } finally {
+    deepseek.consultar = consultarOriginal;
+    deepseek.resumirNota = resumirOriginal;
+  }
+});
+test('B comunica de forma segura errores de DeepSeek', async () => {
+  const original = deepseek.consultar;
+  try {
+    const DeepSeekError = require('../errors/deepseek.error');
+    deepseek.consultar = async () => { throw new DeepSeekError('Servicio de IA no configurado', 503); };
+    const response = await request('/api/ia/preguntar', 'POST', { pregunta: 'Hola' });
+    assert.equal(response.status, 503);
+    assert.deepEqual(await response.json(), { error: 'Servicio de IA no configurado' });
+  } finally {
+    deepseek.consultar = original;
+  }
+});
+test('Swagger documenta todas las operaciones de A y B', async () => {
   const spec = await (await request('/api-docs.json')).json();
   assert.equal(spec.openapi, '3.0.3');
   for (const [path, methods] of Object.entries({ '/api/notas': ['get', 'post'], '/api/notas/{id}': ['get', 'delete'] })) {
@@ -68,6 +105,8 @@ test('Swagger documenta todas las operaciones de A y no implementa B', async () 
   assert.equal(spec.paths['/api/notas/{id}'].get.parameters[0].in, 'path');
   assert.equal(spec.paths['/api/notas/{id}'].delete.responses['204'].content, undefined);
   assert.equal(spec.paths['/api/notas'].post.requestBody.content['application/json'].schema.additionalProperties, false);
+  assert.ok(spec.paths['/api/ia/preguntar'].post.requestBody);
+  assert.ok(spec.paths['/api/notas/{id}/resumen'].post);
+  assert.equal(spec.paths['/api/ia/preguntar'].post.responses['503'].description, 'Error');
   assert.equal((await request('/api-docs/')).status, 200);
-  assert.equal((await request('/api/ia/preguntar', 'POST', { pregunta: 'Hola' })).status, 404);
 });

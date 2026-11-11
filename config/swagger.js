@@ -1,8 +1,17 @@
 const { z } = require('zod');
 const specification = {
   openapi: '3.0.3',
-  info: { title: 'Laboratorio 5 - API de notas', version: '1.0.0', description: 'Parte A. Notas en memoria; integracion Claude pendiente de B.' },
+  info: {
+    title: 'Laboratorio 5 - API de notas con DeepSeek',
+    version: '1.0.0',
+    description: 'API de notas en memoria con consultas y resumenes generados por DeepSeek.',
+  },
   servers: [{ url: '/' }], paths: {},
+  tags: [
+    { name: 'Notas', description: 'CRUD de notas en memoria.' },
+    { name: 'IA', description: 'Consultas y resumenes generados por DeepSeek.' },
+    { name: 'Estado', description: 'Disponibilidad de la API.' },
+  ],
   components: { schemas: {
     Nota: { type: 'object', required: ['id', 'titulo', 'contenido', 'creadaEn'], properties: {
       id: { type: 'string', format: 'uuid' }, titulo: { type: 'string' }, contenido: { type: 'string' }, creadaEn: { type: 'string', format: 'date-time' },

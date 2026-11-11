@@ -1,5 +1,8 @@
 module.exports = function errorHandler(err, req, res, next) {
   if (res.headersSent) return next(err);
+  if (err.name === 'DeepSeekError') {
+    return res.status(err.status).json({ error: err.message });
+  }
   const status = Number.isInteger(err.status) && err.status >= 400 && err.status <= 599 ? err.status : 500;
   let mensaje = status < 500 || err.expose ? err.message : 'Error interno del servidor';
   if (err.type === 'entity.parse.failed') mensaje = 'JSON invalido';

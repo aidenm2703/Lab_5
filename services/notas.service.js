@@ -1,26 +1,12 @@
-const fs = require('node:fs/promises');
-const path = require('node:path');
 const { randomUUID } = require('node:crypto');
-const archivo = path.join(__dirname, '../data/notas.json');
-let cola = Promise.resolve();
-
-async function listar() {
-  try { return JSON.parse(await fs.readFile(archivo, 'utf8')); }
-  catch (error) { if (error.code === 'ENOENT') return []; throw error; }
+const notas = new Map();
+function listar() { return [...notas.values()].map(nota => ({ ...nota })); }
+// Contrato con B: recibe UUID; devuelve una copia de la nota o undefined.
+function buscar(id) { const nota = notas.get(id); return nota ? { ...nota } : undefined; }
+function crear({ titulo, contenido }) {
+  const nota = { id: randomUUID(), titulo, contenido, creadaEn: new Date().toISOString() };
+  notas.set(nota.id, nota);
+  return { ...nota };
 }
-
-function guardar(datos) {
-  const operacion = cola.then(async () => {
-    const notas = await listar();
-    const nota = { id: randomUUID(), ...datos, creadaEn: new Date().toISOString() };
-    notas.push(nota);
-    await fs.mkdir(path.dirname(archivo), { recursive: true });
-    await fs.writeFile(`${archivo}.tmp`, JSON.stringify(notas, null, 2));
-    await fs.rename(`${archivo}.tmp`, archivo);
-    return nota;
-  });
-  cola = operacion.catch(() => {});
-  return operacion;
-}
-
-module.exports = { listar, guardar };
+function eliminar(id) { return notas.delete(id); }
+module.exports = { listar, buscar, crear, eliminar };

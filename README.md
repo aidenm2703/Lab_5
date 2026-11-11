@@ -1,76 +1,55 @@
-# Laboratorio 5 - Parte A
+# Laboratorio 5 - API de notas con DeepSeek
 
-API REST de notas con Express, Zod y Swagger UI. Requiere Node.js 20 o superior.
+API REST construida con Express, Zod, Swagger UI y DeepSeek. Las notas viven en memoria: se reinician al detener el servidor.
 
-## Ejecutar y probar
+## Ejecutar
 
 1. Ejecutar `npm.cmd install`.
-2. Copiar `.env.example` a `.env` si no existe. A funciona sin API key.
-3. Ejecutar `npm.cmd run dev` (o `npm.cmd start`).
-4. Abrir http://localhost:3000/api-docs y usar **Try it out / Execute**.
-5. Ejecutar `npm.cmd test` para verificar CRUD, validacion, errores y Swagger.
+2. Copiar `.env.example` como `.env` y asignar localmente `DEEPSEEK_API_KEY`.
+3. Ejecutar `npm.cmd run dev` o `npm.cmd start`.
+4. Abrir `http://localhost:3000/api-docs`.
+5. Ejecutar `npm.cmd test`.
 
-En otras terminales se puede usar `npm` en lugar de `npm.cmd`.
+No se debe subir `.env` ni una API key. `DEEPSEEK_BASE_URL` y `DEEPSEEK_MODEL` son opcionales; sus valores por defecto son `https://api.deepseek.com` y `deepseek-flash`.
 
-## Endpoints de A
+## Endpoints
 
 | Metodo | Ruta | Resultado |
 | --- | --- | --- |
-| GET | /api/notas | 200: lista de notas |
-| GET | /api/notas/:id | 200: nota; 404 si no existe |
-| POST | /api/notas | 201: nota creada y cabecera Location |
-| DELETE | /api/notas/:id | 204 sin cuerpo; 404 si no existe |
-| GET | /api/health | 200: estado del servidor |
-| GET | /api-docs | Swagger UI |
-| GET | /api-docs.json | OpenAPI 3.0.3 |
+| GET | /api/health | Estado de la API |
+| GET | /api/notas | Lista de notas |
+| POST | /api/notas | Crea una nota |
+| GET | /api/notas/:id | Obtiene una nota |
+| DELETE | /api/notas/:id | Elimina una nota |
+| POST | /api/ia/preguntar | Consulta libre a DeepSeek |
+| POST | /api/notas/:id/resumen | Resume una nota en exactamente tres vinetas en espanol |
 
-Crear con este JSON:
+Crear una nota:
 
 ```json
-{ "titulo": "Clase 1", "contenido": "Apuntes de Express" }
+{ "titulo": "Clase 1", "contenido": "Apuntes de Express y Zod" }
 ```
 
-Copiar el UUID de la respuesta para obtener o eliminar esa nota. Las notas viven en memoria y se pierden al reiniciar. No se usa MySQL ni el antiguo archivo de datos.
+Preguntar a DeepSeek:
 
-El titulo debe tener entre 1 y 200 caracteres y el contenido entre 1 y 10000, despues de recortar espacios. Se rechazan campos adicionales. Un ID mal formado devuelve 400; un UUID valido inexistente devuelve 404. JSON invalido devuelve 400 y un cuerpo mayor a 100 KB devuelve 413. Los errores usan `{ "error": "mensaje" }`; los de Zod incluyen `detalles`. Los fallos internos devuelven 500 sin exponer detalles.
-
-## Estructura y Swagger
-
-- `services/notas.service.js`: almacenamiento en memoria y contrato compartido.
-- `controllers/notas.controller.js`: respuestas HTTP.
-- `routes/notas.routes.js`: las cuatro operaciones de notas y sus esquemas.
-- `routes/endpoint.js`: registra ruta, validacion y OpenAPI juntos.
-- `middleware/validar.js`: valida con Zod y deja los datos normalizados en `res.locals.body` o `res.locals.params`.
-- `middleware/errorHandler.js`: manejo centralizado, listo para que B amplie los errores de Claude.
-
-## Entrega a B (pendiente de implementar)
-
-La funcion acordada es sincronica: `buscar(id)` recibe un UUID y devuelve una copia de `{ id, titulo, contenido, creadaEn }` o `undefined` si no existe. Importarla desde `services/notas.service.js`. Tambien se exportan `listar()`, `crear({ titulo, contenido })` y `eliminar(id)` (booleano).
-
-B debe instalar el SDK oficial `@anthropic-ai/sdk`, crear `claude.service.js` e `ia.routes.js`, y agregar:
-
-- `POST /api/ia/preguntar`.
-- `POST /api/notas/:id/resumen`, usando `buscar(id)` y respondiendo 404 si no existe.
-- Documentacion y pruebas de esas operaciones; manejo de errores del proveedor.
-
-Puede usar `routes/endpoint.js` para documentar y validar sus rutas. El helper recibe paths completos relativos a `/api`; montar su router en `routes/index.js` sin repetir prefijos. Los controladores pueden ser async: Express 5 entrega sus rechazos al errorHandler. La clave se lee solo en backend desde `process.env.ANTHROPIC_API_KEY`.
-
-La integracion DeepSeek anterior queda en sus archivos como referencia historica, sin rutas activas. No satisface la integracion Claude requerida por B.
-
-## Git y trabajo en pareja
-
-GitHub Actions ejecuta `npm ci` y `npm test` en Node.js 22 y 24 para cada pull request y cada push a `feature/notas` o `feature/ia`. Las pruebas de A no necesitan claves ni solicitudes de IA. El resultado se consulta en la pestaña Actions del repositorio y en los checks del PR.
-
-A trabaja en `feature/notas`; B en `feature/ia`. No subir directamente a main. Crear un PR hacia main y pedir revision a la pareja; la aprobacion y los comentarios deben realizarlos las personas participantes. Cada integrante necesita al menos cinco commits significativos.
-
-Para que B tome esta base despues del push:
-
-```bash
-git fetch origin
-git switch feature/ia
-git merge origin/feature/notas
+```json
+{ "pregunta": "Explica que es una API REST en una frase." }
 ```
 
-Si aun no tiene rama: `git switch -c feature/ia origin/feature/notas`.
+Para resumir, usar el UUID devuelto al crear la nota. Si el ID es un UUID valido pero no existe, la API responde `404` antes de solicitar el resumen a DeepSeek. Las preguntas vacias, campos extra o preguntas de mas de 2000 caracteres devuelven `400`.
 
-Nunca agregar `.env`, claves ni capturas de credenciales. `.env.example` contiene solo variables vacias. La parte A no realiza solicitudes al proveedor de IA.
+## Errores y pruebas
+
+Los errores tienen la forma `{ "error": "mensaje" }`; los errores de Zod incluyen `detalles`. Los errores del proveedor IA se manejan de forma centralizada: falta de configuracion devuelve `503`, y una respuesta invalida o fallo de DeepSeek devuelve `502` sin exponer detalles del proveedor.
+
+La prueba automatizada verifica CRUD, validacion, Swagger, preguntas libres, resumen de una nota y el caso `404` que evita llamar a IA. Para la prueba cruzada manual: A debe probar `POST /api/ia/preguntar` y `POST /api/notas/:id/resumen`; B debe crear, consultar y eliminar notas con el CRUD de A.
+
+## Reflexion
+
+- Zod evita que datos invalidos lleguen a servicios y mantiene los contratos visibles en Swagger.
+- Separar controlador, servicio y middleware permite cambiar el proveedor de IA sin alterar las rutas.
+- El resumen busca la nota antes de llamar a la IA: es mas rapido, evita costo innecesario y devuelve el `404` correcto.
+
+## Trabajo en pareja
+
+La parte A cubre Express, Swagger, CRUD, Zod para notas y los errores generales. La parte B cubre DeepSeek, preguntas libres, resumenes, validacion de preguntas, errores de IA, documentacion y pruebas de sus endpoints. Los cambios se integran mediante pull requests revisados por la otra persona.

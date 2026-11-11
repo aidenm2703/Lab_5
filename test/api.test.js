@@ -84,6 +84,18 @@ test('B valida preguntas, consulta DeepSeek y resume notas existentes', async ()
     deepseek.resumirNota = resumirOriginal;
   }
 });
+test('B comunica de forma segura errores de DeepSeek', async () => {
+  const original = deepseek.consultar;
+  try {
+    const DeepSeekError = require('../errors/deepseek.error');
+    deepseek.consultar = async () => { throw new DeepSeekError('Servicio de IA no configurado', 503); };
+    const response = await request('/api/ia/preguntar', 'POST', { pregunta: 'Hola' });
+    assert.equal(response.status, 503);
+    assert.deepEqual(await response.json(), { error: 'Servicio de IA no configurado' });
+  } finally {
+    deepseek.consultar = original;
+  }
+});
 test('Swagger documenta todas las operaciones de A y B', async () => {
   const spec = await (await request('/api-docs.json')).json();
   assert.equal(spec.openapi, '3.0.3');
